@@ -1,0 +1,12 @@
+1. Cài đặt
+pip install whisper tqdm ffmpeg-python cx_Freeze
++) Ngoài ra bạn cần cài đặt ffmpeg:
++) Tải từ: https://ffmpeg.org/download.html
++) Thêm thư mục bin của ffmpeg vào PATH của hệ thống để chạy ffmpeg từ dòng lệnh.
++) $env:Path += ";C:\ffmpeg\bin" cho VS Code
+2. Chạy debug
+python main.py --model large --language chinese --src path/to/video.mp4
+3. Đóng gói file .exe
+python setup.py build
+4. Chạy exe
+.\quick-subtitles.exe --model large --language chinese --src path/to/video.mp4

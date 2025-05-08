@@ -7,9 +7,15 @@ from tqdm import tqdm
 
 def get_video_info(file_path: str) -> str:
     command = ["ffmpeg", "-i", file_path]
+    print(f"Running command: {' '.join(command)}")  # Debug command
     try:
         result = subprocess.run(
-            command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+            command,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace"
         )
         return result.stderr
     except Exception as e:
@@ -60,7 +66,7 @@ def parse_args():
     parser.add_argument(
         "--language",
         default=None,
-        help="Language of the audio in the video (e.g., french, english, spanish...)",
+        help="Language of the audio in the video (e.g., french, english, spanish, chinese)",
     )
 
     return parser.parse_args()
@@ -75,35 +81,46 @@ if __name__ == "__main__":
     srt_file = f"{video_file}.srt"
     model_name = args.model
 
+    # Get video info
     info = get_video_info(video_file)
-    audio_format = re.search(r"Audio: (\w+)", info).group(1)
+    if info is None:
+        print("❌ Không thể lấy thông tin video. Hãy kiểm tra lại đường dẫn hoặc cài đặt ffmpeg trong PATH.")
+        exit(1)
+
+    # Detect audio format and extract
+    match = re.search(r"Audio: (\w+)", info)
+    audio_format = match.group(1) if match else 'wav'
     print(f"Detected audio format: {audio_format}")
 
-    output_audio_file = f"audio.{audio_format}"
-
+    # Extract audio to WAV, mono, 16kHz for best transcription
+    output_audio_file = f"audio.wav"
     command = [
         "ffmpeg",
-        "-i",
-        video_file,
+        "-i", video_file,
         "-vn",
-        "-acodec",
-        "copy",
+        "-ar", "16000",
+        "-ac", "1",
         output_audio_file,
     ]
 
     try:
+        print(f"Running command: {' '.join(command)}")
         subprocess.run(command, check=True)
-        print(f"Extrated audio: {output_audio_file}")
+        print(f"Extracted audio: {output_audio_file}")
     except subprocess.CalledProcessError as e:
         print(f"Error extracting audio: {e}")
+        exit(1)
 
-    print(f"Loding model {model_name}...")
+    # Load Whisper model
+    print(f"Loading model: {model_name}...")
     model = whisper.load_model(model_name)
     print("Model loaded.")
 
+    # Transcribe audio
     print("Transcribing audio...")
     transcript, segments = transcribe_audio(output_audio_file, model, language)
 
+    # Save to SRT with progress
     print(f"Saving transcription to: {srt_file}")
     with tqdm(total=len(segments), desc="Saving SRT", unit="segment") as pbar:
         save_to_srt(segments, srt_file)
